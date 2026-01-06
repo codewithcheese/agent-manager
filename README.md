@@ -46,9 +46,16 @@ This starts:
 - **App**: http://localhost:3000
 - **PostgreSQL**: localhost:5432 (user: `agent_manager`, password: `agent_manager`)
 
+The database schema is automatically initialized on first startup. On subsequent starts, the schema is updated if needed.
+
 To stop:
 ```sh
 docker compose down
+```
+
+To stop and remove the database volume (resets all data):
+```sh
+docker compose down -v
 ```
 
 ### Option B: Manual Setup
@@ -254,7 +261,7 @@ npm run db:studio    # Open Drizzle Studio
 docker compose up -d --build
 ```
 
-This runs the app with PostgreSQL. Data is persisted in a Docker volume.
+This runs the app with PostgreSQL. Data is persisted in a Docker volume. Database migrations run automatically on container startup.
 
 ### Manual Build
 

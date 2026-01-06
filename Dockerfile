@@ -26,11 +26,19 @@ ENV NODE_ENV=production
 COPY --from=builder /app/build ./build
 COPY --from=builder /app/package*.json ./
 
-# Install production dependencies only
-RUN npm ci --omit=dev
+# Copy database schema and config for migrations
+COPY --from=builder /app/drizzle.config.ts ./
+COPY --from=builder /app/src/lib/server/db ./src/lib/server/db
+
+# Install production dependencies and drizzle-kit for migrations
+RUN npm ci --omit=dev && npm install drizzle-kit
+
+# Copy entrypoint script
+COPY docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
 
 # Expose the port
 EXPOSE 3000
 
-# Start the application
-CMD ["node", "build"]
+# Start with entrypoint that runs migrations then starts app
+CMD ["./docker-entrypoint.sh"]
