@@ -1,5 +1,33 @@
 # Agent Manager - Design Document
 
+## Maintaining This Document
+
+This document describes the architecture and design of Agent Manager. Keep it updated when making significant changes:
+
+**When to update:**
+- Adding or modifying API endpoints
+- Changing database schema or data model
+- Modifying container configuration or environment variables
+- Updating WebSocket protocol or message formats
+- Changing container components (entrypoint, agent runner)
+- Modifying session lifecycle or state machine
+- Updating deployment requirements or dependencies
+
+**How to update:**
+1. Find the relevant section(s) for your changes
+2. Update technical details to match the implementation
+3. Keep diagrams and code examples current
+4. Update version requirements if dependencies change
+5. Ensure consistency between related sections
+
+**Relationship to other docs:**
+- `README.md` - User-facing setup and usage instructions
+- `CLAUDE.md` - AI assistant development guidelines
+- `TESTING.md` - Testing strategy and practices
+- `DESIGN.md` (this file) - Architecture and implementation details
+
+---
+
 ## Overview
 
 Agent Manager is a local-first Web UI for managing multiple agentic coding sessions across GitHub repositories. Each session runs in an isolated Docker container with a dedicated git worktree, streaming real-time Claude Code Agent SDK messages to the UI via WebSockets.
@@ -185,7 +213,7 @@ Each session runs in an isolated Docker container with controlled resources:
 
 ```dockerfile
 Image: agent-manager-sandbox:latest
-Base: node:20-slim
+Base: node:22-slim
 
 Resources:
   - Memory: 4GB limit
@@ -201,7 +229,7 @@ Environment:
   - GH_TOKEN: GitHub authentication
   - AGENT_ROLE: implementer|orchestrator
   - GOAL_PROMPT: Initial task description
-  - ADDITIONAL_INSTRUCTIONS: Extra context
+  - CLAUDE_MODEL: Model to use (sonnet, opus, haiku)
 ```
 
 #### Container Lifecycle
@@ -233,22 +261,23 @@ Environment:
 
 Orchestrates container startup:
 - Configures git credential helper with GitHub token
-- Starts WebSocket client as background process
+- Sets up gh CLI authentication
 - Builds system prompt with role-specific instructions
-- Appends CLAUDE.md content if present
-- Creates named pipes for Claude Code communication
-- Launches Claude Code with --dangerously-skip-permissions
+- Appends CLAUDE.md content if present in workspace
+- Verifies Claude Code CLI is available
+- Launches TypeScript agent runner
 
-#### 2. WebSocket Client (`agent-ws-client.js`)
+#### 2. Agent Runner (`agent-runner.ts`)
 
-Node.js process managing communication:
+TypeScript process managing Claude CLI and WebSocket communication:
+- Spawns Claude Code CLI with streaming JSON mode (`--output-format stream-json`)
 - Connects to manager's WebSocket endpoint
-- Watches output pipe for Claude Code messages
-- Forwards events with proper envelope format
+- Bridges Claude CLI output to WebSocket (forwards events with envelope format)
+- Bridges WebSocket commands to Claude CLI stdin
 - Monitors for idle state (30s inactivity)
 - Sends heartbeat every 30s
 - Handles reconnection (up to 10 attempts)
-- Processes commands from manager
+- Processes user messages and injects into Claude CLI
 
 ---
 
@@ -427,7 +456,7 @@ Starts a new coding session.
   "baseBranch": "main",
   "goalPrompt": "Implement feature X",
   "branchSuffix": "optional-suffix",
-  "additionalInstructions": "Extra context..."
+  "model": "sonnet"
 }
 ```
 
@@ -782,7 +811,7 @@ PORT=8080 node server.js
 
 | Requirement | Version | Purpose |
 |-------------|---------|---------|
-| Node.js | 20+ | Runtime |
+| Node.js | 22+ | Runtime |
 | PostgreSQL | 15+ | Data storage |
 | Docker | 24+ | Container runtime |
 | gh CLI | 2.0+ | GitHub integration |

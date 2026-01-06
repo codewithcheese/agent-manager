@@ -204,3 +204,22 @@ When making changes to tests or testing infrastructure, update `TESTING.md`. Thi
 2. Each test example includes file path and runnable code
 3. Mocking patterns are documented with examples
 4. Critical integrations (like Claude Code) have dedicated sections showing tests across all layers
+
+### Keeping DESIGN.md Updated
+
+When making significant architectural or implementation changes, update `DESIGN.md`. This includes:
+
+- **API endpoint changes** - Add/modify endpoint documentation in "API Design" section
+- **Database schema changes** - Update "Data Model" section with new tables/columns
+- **Container configuration** - Update "Container Sandboxing" section
+- **Environment variables** - Update container configuration and deployment sections
+- **WebSocket protocol changes** - Update "WebSocket Protocol" section
+- **Session lifecycle changes** - Update state machine and lifecycle flow
+- **Dependency version changes** - Update "Requirements" table
+
+**DESIGN.md sections to check:**
+1. Container Components - agent-entrypoint.sh and agent-runner.ts descriptions
+2. Container Configuration - environment variables and mounts
+3. API Design - request/response formats for all endpoints
+4. WebSocket Protocol - message envelope format and event types
+5. Requirements - Node.js, PostgreSQL, Docker versions
