@@ -1,809 +1,407 @@
-# Agent Manager - Design Document
+# Agent Manager - Design System
 
-## Overview
+This document outlines the visual design principles and implementation details for the Agent Manager UI.
 
-Agent Manager is a local-first Web UI for managing multiple agentic coding sessions across GitHub repositories. Each session runs in an isolated Docker container with a dedicated git worktree, streaming real-time Claude Code Agent SDK messages to the UI via WebSockets.
+## Design Philosophy
 
-### Key Design Principles
+### Core Principles
 
-1. **Local-First**: Runs entirely on developer machines, using local Docker and `gh` CLI authentication
-2. **Session Isolation**: Each coding session gets its own Docker container and git worktree
-3. **Real-Time Streaming**: WebSocket-based protocol for live event streaming between containers and UI
-4. **Multi-Repo Management**: Single UI to manage multiple GitHub repositories and their sessions
-5. **Orchestrator Pattern**: Optional orchestrator sessions for coordinating work across implementers
+1. **Clarity First**: Information hierarchy is paramount. The most important data (session status, activity) should be immediately visible.
 
----
+2. **Depth Through Subtlety**: Use soft shadows, gentle gradients, and layered backgrounds to create visual depth without overwhelming the interface.
 
-## Architecture
+3. **Motion with Purpose**: Animations serve functional purposes—indicating state changes, drawing attention, and providing feedback.
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                          Browser UI                                  │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────┐   │
-│  │  Repo List   │  │ Repo Detail  │  │    Session Timeline      │   │
-│  │  (+modal)    │  │ (sessions)   │  │  (events + messaging)    │   │
-│  └──────────────┘  └──────────────┘  └──────────────────────────┘   │
-└────────────────────────────┬────────────────────────────────────────┘
-                             │ HTTP + WebSocket
-                             ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                      SvelteKit Server                                │
-│  ┌────────────────┐  ┌────────────────┐  ┌──────────────────────┐   │
-│  │   API Routes   │  │   WebSocket    │  │   Runner Modules     │   │
-│  │  /api/repos    │  │   Handler      │  │  git | github |      │   │
-│  │  /api/sessions │  │   Protocol     │  │  docker              │   │
-│  └────────────────┘  └────────────────┘  └──────────────────────┘   │
-└────────────────────────────┬────────────────────────────────────────┘
-                             │
-          ┌──────────────────┼──────────────────┐
-          ▼                  ▼                  ▼
-┌──────────────────┐ ┌──────────────┐ ┌────────────────────────────┐
-│   PostgreSQL     │ │  Git Repos   │ │     Docker Containers      │
-│                  │ │              │ │                            │
-│  repos           │ │  ~/.agent-   │ │  ┌────────────────────┐   │
-│  sessions        │ │  manager/    │ │  │  Session Container │   │
-│  events          │ │  repos/      │ │  │  ┌──────────────┐  │   │
-│                  │ │  worktrees/  │ │  │  │ Claude Code  │  │   │
-└──────────────────┘ └──────────────┘ │  │  │   + Agent    │  │   │
-                                      │  │  └──────────────┘  │   │
-                                      │  │  ┌──────────────┐  │   │
-                                      │  │  │  WS Client   │  │   │
-                                      │  │  └──────────────┘  │   │
-                                      │  └────────────────────┘   │
-                                      └────────────────────────────┘
-```
+4. **Dark Mode Native**: Design for dark mode first, then adapt for light mode. Developer tools are often used in low-light environments.
+
+5. **Information Density**: Support displaying multiple sessions and events efficiently while maintaining readability.
 
 ---
 
-## Data Model
+## Color System
 
-### Database Schema
+### Semantic Colors
 
-The application uses PostgreSQL with Drizzle ORM. Three core tables store all persistent state:
+The design uses a semantic color system with CSS custom properties for dynamic theming.
 
-#### `repos` Table
+```css
+/* Status Colors */
+--color-success: #10b981      /* Running, healthy */
+--color-warning: #f59e0b      /* Waiting, needs attention */
+--color-error: #ef4444        /* Errors, failures */
+--color-info: #3b82f6         /* Information, links */
 
-Stores registered GitHub repository references.
+/* Role Colors */
+--color-implementer: #8b5cf6  /* Purple - active coding */
+--color-orchestrator: #06b6d4 /* Cyan - coordination */
+```
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | UUID | Primary key (auto-generated) |
-| `owner` | text | Repository owner/organization |
-| `name` | text | Repository name |
-| `defaultBranch` | text | Default branch (default: 'main') |
-| `createdAt` | timestamp | When repo was registered |
-| `updatedAt` | timestamp | Last modification time |
-| `lastActivityAt` | timestamp | Last session activity |
+### Background Layers
 
-#### `sessions` Table
-
-Stores agent session state and container metadata.
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | UUID | Primary key |
-| `repoId` | UUID | Foreign key to repos (cascade delete) |
-| `role` | enum | 'implementer' or 'orchestrator' |
-| `status` | enum | Session lifecycle state |
-| `branchName` | text | Git branch for this session |
-| `baseBranch` | text | Branch used as starting point |
-| `worktreePath` | text | Filesystem path to worktree |
-| `containerId` | text | Docker container ID |
-| `createdAt` | timestamp | Session start time |
-| `updatedAt` | timestamp | Last update time |
-| `finishedAt` | timestamp | When session ended (nullable) |
-| `lastEventId` | bigint | Reference to latest event |
-| `lastKnownHeadSha` | text | Latest git commit SHA |
-| `lastKnownPrUrl` | text | Cached PR URL for branch |
-
-**Session Status Values:**
-- `starting` - Container and worktree being provisioned
-- `running` - Agent actively working
-- `waiting` - Agent idle, awaiting user input
-- `finished` - Work completed successfully
-- `error` - Session failed
-- `stopped` - User-terminated
-
-#### `events` Table
-
-Append-only log of all session events for replay and debugging.
-
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | bigserial | Auto-incrementing primary key |
-| `sessionId` | UUID | Foreign key to sessions (cascade delete) |
-| `ts` | timestamp | Event timestamp |
-| `source` | enum | 'claude', 'runner', or 'manager' |
-| `type` | text | Event type identifier |
-| `payload` | jsonb | Event-specific data |
-
-**Event Sources:**
-- `claude` - Messages from Claude Code SDK
-- `runner` - Container lifecycle events
-- `manager` - Server-side events
-
-### Entity Relationships
+The UI uses layered backgrounds to create depth:
 
 ```
-repos (1) ────────< (N) sessions
-sessions (1) ────────< (N) events
+Layer 0: Page background (darkest)
+Layer 1: Card backgrounds (slightly lighter)
+Layer 2: Interactive elements (hover states)
+Layer 3: Elevated components (modals, dropdowns)
 ```
+
+### Accent Colors
+
+Primary accent color is a vibrant blue (`#3b82f6`) used for:
+- Primary buttons
+- Active navigation items
+- Links
+- Focus states
 
 ---
 
-## Git Strategy
+## Typography
 
-### Bare Mirror + Worktrees
+### Font Stack
 
-The application uses a two-layer git strategy for efficient session isolation:
+```css
+/* UI Text */
+font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+             Roboto, Oxygen, Ubuntu, sans-serif;
 
-#### 1. Bare Mirrors
-
-Each registered repository has a bare mirror stored locally:
-
-```
-~/.agent-manager/repos/{owner}/{repo}.git
-```
-
-**Operations:**
-- Created on first session start via `git clone --bare --mirror`
-- Updated via `git fetch --prune origin` before each session
-- Shared across all sessions for the same repository
-- Minimal disk space (no working files)
-
-#### 2. Session Worktrees
-
-Each session gets an isolated worktree:
-
-```
-~/.agent-manager/worktrees/{sessionId}/
+/* Code/Monospace */
+font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono',
+             Consolas, monospace;
 ```
 
-**Operations:**
-- Created via `git worktree add -b {branchName} {path} origin/{baseBranch}`
-- Branch naming: `agent/{repoName}/{shortSessionId}`
-- Full working directory with all files
-- Independent git state from other sessions
-- Removed when session is stopped or cleaned up
+### Scale
 
-### Benefits
-
-1. **Fast Session Startup**: No need to clone entire repo for each session
-2. **Disk Efficiency**: Single mirror shared across sessions
-3. **Branch Isolation**: Each session works on independent branch
-4. **Clean Cleanup**: Worktree removal doesn't affect mirror or other sessions
+| Name | Size | Weight | Use Case |
+|------|------|--------|----------|
+| Display | 2rem | 700 | Page titles |
+| Heading | 1.25rem | 600 | Section headers |
+| Body | 0.875rem | 400 | Primary content |
+| Caption | 0.75rem | 500 | Labels, metadata |
+| Micro | 0.625rem | 500 | Timestamps, badges |
 
 ---
 
-## Container Sandboxing
+## Components
 
-### Docker Container Design
+### Cards
 
-Each session runs in an isolated Docker container with controlled resources:
+Cards are the primary container for content. They feature:
 
-#### Container Configuration
+- **Subtle border**: 1px with low opacity
+- **Background gradient**: Slight gradient from top to bottom
+- **Shadow on hover**: Elevates on interaction
+- **Border radius**: 12px for modern feel
 
-```dockerfile
-Image: agent-manager-sandbox:latest
-Base: node:20-slim
-
-Resources:
-  - Memory: 4GB limit
-  - CPU: 2 cores limit
-
-Mounts:
-  - /workspace ← session worktree (read-write)
-  - /home/agent/.claude ← Claude config (read-only)
-
-Environment:
-  - AGENT_MANAGER_URL: WebSocket endpoint
-  - SESSION_ID: Session UUID
-  - GH_TOKEN: GitHub authentication
-  - AGENT_ROLE: implementer|orchestrator
-  - GOAL_PROMPT: Initial task description
-  - ADDITIONAL_INSTRUCTIONS: Extra context
-```
-
-#### Container Lifecycle
-
-```
-1. Start Container
-   ├── Docker run with env vars and mounts
-   ├── agent-entrypoint.sh executes
-   ├── Git credentials configured
-   ├── WebSocket client started
-   └── Claude Code launched
-
-2. Running
-   ├── Claude Code processes tasks
-   ├── Events streamed via WebSocket
-   ├── Heartbeats sent every 30s
-   └── Idle detection after 30s inactivity
-
-3. Shutdown
-   ├── User stop OR agent completion
-   ├── Container stopped gracefully (10s timeout)
-   ├── Worktree optionally cleaned up
-   └── Session marked as stopped/finished
-```
-
-### Container Components
-
-#### 1. Entrypoint Script (`agent-entrypoint.sh`)
-
-Orchestrates container startup:
-- Configures git credential helper with GitHub token
-- Starts WebSocket client as background process
-- Builds system prompt with role-specific instructions
-- Appends CLAUDE.md content if present
-- Creates named pipes for Claude Code communication
-- Launches Claude Code with --dangerously-skip-permissions
-
-#### 2. WebSocket Client (`agent-ws-client.js`)
-
-Node.js process managing communication:
-- Connects to manager's WebSocket endpoint
-- Watches output pipe for Claude Code messages
-- Forwards events with proper envelope format
-- Monitors for idle state (30s inactivity)
-- Sends heartbeat every 30s
-- Handles reconnection (up to 10 attempts)
-- Processes commands from manager
-
----
-
-## WebSocket Protocol
-
-### Message Envelope
-
-All WebSocket messages use a canonical envelope format:
-
-```typescript
-interface WSMessage<T> {
-  v: 1;                    // Protocol version
-  kind: WSMessageKind;     // Message type
-  sessionId: string | null;
-  ts: string;              // ISO-8601 timestamp
-  seq: number;             // Sequence number
-  payload: T;              // Type-specific data
+```css
+.card {
+  background: linear-gradient(to bottom,
+    var(--color-bg-elevated),
+    var(--color-bg-card));
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
 }
 
-type WSMessageKind =
-  | 'event'      // Container → Manager (events)
-  | 'command'    // UI → Manager (actions)
-  | 'ack'        // Manager → Client (confirmations)
-  | 'error'      // Manager → Client (errors)
-  | 'subscribe'  // Client → Manager (subscriptions)
-  | 'snapshot'   // Manager → Client (state dumps)
-```
-
-### Integration with sveltekit-ws
-
-The protocol wraps messages in sveltekit-ws format:
-
-```typescript
-// sveltekit-ws expects:
-{ type: 'agent-manager', data: WSMessage }
-```
-
-### Event Flow
-
-#### Container → Manager
-
-```
-Container                    Manager                      UI
-   │                            │                          │
-   │─── event (claude.message) ─▶                          │
-   │                            ├── Persist to DB          │
-   │                            ├── Update session         │
-   │                            ├── Broadcast ────────────▶│
-   │◀── ack ────────────────────┤                          │
-```
-
-#### UI → Container (via Manager)
-
-```
-UI                          Manager                   Container
-│                              │                          │
-│─── command (send_message) ──▶                           │
-│                              ├── Validate session       │
-│                              ├── Update status          │
-│                              ├── Record event           │
-│                              ├── Forward ──────────────▶│
-│◀── ack ──────────────────────┤                          │
-```
-
-### Event Types
-
-#### Claude Events (source: 'claude')
-- `claude.message` - General SDK message
-- `claude.text` - Text output
-- `claude.tool_use` - Tool invocation
-- `claude.tool_result` - Tool execution result
-- `claude.error` - Error from SDK
-
-#### Runner Events (source: 'runner')
-- `process.started` - Container initialized
-- `process.exited` - Container stopped
-- `process.stdout` / `process.stderr` - Process output
-- `heartbeat` - Container alive signal
-- `session.idle` - Agent waiting for input
-- `session.error` - Container-level error
-
-#### Manager Events (source: 'manager')
-- `container.started` / `container.stopped`
-- `container.connected` / `container.disconnected`
-- `worktree.created` / `worktree.deleted`
-- `session.status_changed`
-- `user.message` - User input recorded
-- `orchestrator.injection` - Cross-session coordination
-
-### Subscription Model
-
-Clients subscribe to topics for selective updates:
-
-| Topic | Format | Updates |
-|-------|--------|---------|
-| Repository list | `repo_list` | Any repo change |
-| Single repository | `repo:{repoId}` | Sessions for repo |
-| Single session | `session:{sessionId}` | Events for session |
-
-Subscriptions enable:
-- Real-time UI updates without polling
-- Multi-tab synchronization
-- Bandwidth-efficient delivery
-
----
-
-## API Design
-
-### Repository Endpoints
-
-#### `GET /api/repos`
-Lists all registered repositories with session statistics.
-
-**Response:**
-```json
-{
-  "repos": [{
-    "id": "uuid",
-    "owner": "string",
-    "name": "string",
-    "fullName": "owner/name",
-    "defaultBranch": "main",
-    "lastActivityAt": "2024-01-01T00:00:00Z",
-    "stats": {
-      "totalSessions": 5,
-      "activeSessions": 1,
-      "hasRunning": true,
-      "hasWaiting": false,
-      "hasError": false
-    }
-  }]
+.card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-color: var(--color-border-hover);
 }
 ```
 
-#### `POST /api/repos`
-Registers a new repository.
+### Buttons
 
-**Request:**
-```json
-{
-  "owner": "string",
-  "name": "string"
-}
-```
+Buttons use solid backgrounds with subtle gradients:
 
-#### `GET /api/repos/github`
-Lists available GitHub repositories for the authenticated user.
+**Primary Button**
+- Gradient background
+- Slight shadow
+- Scale transform on hover
+- Loading state with spinner
 
-**Query Parameters:**
-- `check_auth=true` - Return auth status only
-- `owner` - Filter by owner
-- `limit` - Max results (default 100)
-- `visibility` - public/private/all
+**Secondary Button**
+- Transparent with border
+- Background fill on hover
+- Used for less prominent actions
 
-#### `GET /api/repos/[id]`
-Gets repository details with sessions and documentation.
+**Danger Button**
+- Red gradient
+- Used sparingly for destructive actions
 
-**Response includes:**
-- Repository metadata
-- Active and past sessions
-- Orchestrator session (if exists)
-- README.md and CLAUDE.md content
+### Badges
 
-#### `DELETE /api/repos/[id]`
-Removes repository registration. Fails if active sessions exist.
+Status and role badges are pill-shaped indicators:
 
-### Session Endpoints
+**Status Badge**
+- Small circular indicator dot
+- Pulsing animation for active states
+- Color-coded by status
+- Semi-transparent background matching status color
 
-#### `POST /api/repos/[id]/sessions`
-Starts a new coding session.
+**Role Badge**
+- Rounded rectangle shape
+- Icon + text combination
+- Subtle background matching role color
 
-**Request:**
-```json
-{
-  "role": "implementer",
-  "baseBranch": "main",
-  "goalPrompt": "Implement feature X",
-  "branchSuffix": "optional-suffix",
-  "additionalInstructions": "Extra context..."
-}
-```
+### Form Inputs
 
-**Startup Sequence:**
-1. Create session record (status: 'starting')
-2. Generate branch name
-3. Create git worktree
-4. Obtain GitHub token
-5. Start Docker container
-6. Record session.started event
-7. Return session on 201
-
-#### `GET /api/sessions/[id]`
-Gets session details with events.
-
-**Query Parameters:**
-- `events=true` - Include event history
-- `event_limit=100` - Max events
-
-**Response includes:**
-- Full session data
-- Associated repository
-- PR information (if exists)
-- Recent events
-
-#### `DELETE /api/sessions/[id]`
-Stops a running session.
-
-**Process:**
-1. Stop Docker container
-2. Update status to 'stopped'
-3. Record session.stopped event
-
-#### `GET /api/sessions/[id]/events`
-Paginated event retrieval.
-
-**Query Parameters:**
-- `limit` - Events per page (max 1000)
-- `after` / `before` - Cursor for pagination
-- `order` - asc/desc
-- `source` - Filter by event source
-- `type` - Filter by event type
-
-#### `POST /api/sessions/[id]/messages`
-Sends user message to session.
-
-**Request:**
-```json
-{
-  "message": "string",
-  "force": false
-}
-```
-
-**Validation:**
-- Session must exist
-- Status must be 'waiting' (unless force=true)
-- Container must be connected
+Inputs feature:
+- Transparent background with visible border
+- Color change on focus
+- Ring effect on focus
+- Placeholder with reduced opacity
 
 ---
 
-## UI Components
+## Layout
 
-### Pages
+### Grid System
 
-#### Home Page (`/`)
+The app uses a responsive grid:
 
-Repository grid with:
-- Card per registered repository
-- Activity indicators (running/waiting/error)
-- Session counts
-- Last activity time
-- "Add Repository" modal with GitHub repo search
+```
+Mobile: 1 column
+Tablet (768px+): 2 columns
+Desktop (1024px+): 3 columns
+Wide (1280px+): Container maxes out
+```
 
-#### Repository Detail (`/repos/[id]`)
+### Spacing Scale
 
-Three-column layout:
-1. **Sessions Panel**
-   - Active sessions with status
-   - Past sessions (last 10)
-   - Branch names and PR links
+Based on 4px increments:
 
-2. **Actions**
-   - Start Session button
-   - Orchestrator controls
+```
+1: 4px   (micro spacing)
+2: 8px   (compact elements)
+3: 12px  (element padding)
+4: 16px  (standard gap)
+5: 20px  (section padding)
+6: 24px  (large gaps)
+8: 32px  (section margins)
+```
 
-3. **Documentation Panel**
-   - README.md tab
-   - CLAUDE.md tab
+### Container
 
-#### Session Detail (`/sessions/[id]`)
-
-Full-height layout:
-1. **Header**
-   - Repository name
-   - Role and status badges
-   - Branch name
-   - GitHub links (Compare, PR)
-   - Stop button
-
-2. **Event Timeline**
-   - Scrollable container
-   - Events colored by source
-   - Formatted payloads
-   - Auto-scroll to bottom
-
-3. **Input Area**
-   - Message input (enabled when status='waiting')
-   - Status-aware placeholder
-   - Send button
-
-### Shared Components
-
-#### `StatusBadge`
-Session status indicator with color coding:
-- Starting: Gray
-- Running: Green (pulsing)
-- Waiting: Yellow
-- Finished: Blue
-- Error: Red
-- Stopped: Gray
-
-#### `RoleBadge`
-Session role indicator:
-- Implementer: Purple
-- Orchestrator: Cyan
-
-#### `TimeAgo`
-Relative time display ("5m ago", "2h ago")
+Main content container:
+- Max width: 1280px
+- Horizontal padding: 24px (mobile: 16px)
+- Centered with auto margins
 
 ---
 
-## Configuration
+## Motion & Animation
 
-### Configuration Sources
+### Timing
 
-Priority order (later overrides earlier):
-1. Built-in defaults
-2. Config file (`~/.agent-manager/config.json`)
-3. Environment variables
+```css
+--duration-fast: 150ms;
+--duration-normal: 200ms;
+--duration-slow: 300ms;
 
-### Configuration Options
-
-| Option | Env Variable | Default | Description |
-|--------|-------------|---------|-------------|
-| `databaseUrl` | `DATABASE_URL` | - | PostgreSQL connection string |
-| `port` | `PORT` | 3000 | Server port |
-| `workspaceRoot` | `WORKSPACE_ROOT` | ~/.agent-manager | Root directory for repos/worktrees |
-| `containerImage` | `CONTAINER_IMAGE` | agent-manager-sandbox:latest | Docker image for sessions |
-| `idleTimeoutSeconds` | `IDLE_TIMEOUT_SECONDS` | 30 | Seconds before marking idle |
-| `heartbeatIntervalMs` | `HEARTBEAT_INTERVAL_MS` | 30000 | Container health check interval |
-| `baseSystemPrompt` | `BASE_SYSTEM_PROMPT` | (built-in) | Custom agent system prompt |
-
-### Workspace Directory Structure
-
+--ease-out: cubic-bezier(0.0, 0.0, 0.2, 1);
+--ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
 ```
-~/.agent-manager/
-├── config.json           # User configuration
-├── repos/                # Bare git mirrors
-│   └── {owner}/
-│       └── {repo}.git
-└── worktrees/            # Session working directories
-    └── {sessionId}/
-```
+
+### Patterns
+
+**Hover Transitions**
+- Background color: 150ms
+- Transform/shadow: 200ms
+- Border color: 150ms
+
+**Loading States**
+- Spinner: 1s linear infinite
+- Pulse: 2s ease-in-out infinite
+- Skeleton: 1.5s ease-in-out infinite
+
+**Status Changes**
+- Badge color transitions smoothly
+- Running status pulses gently
+- Waiting status has attention-grabbing animation
 
 ---
 
-## Session Lifecycle
+## Iconography
 
-### State Machine
+### Style
 
-```
-                    ┌─────────────────────┐
-                    │      starting       │
-                    └──────────┬──────────┘
-                               │ container ready
-                               ▼
-              ┌────────────────────────────────┐
-              │            running             │◀─┐
-              └───────────────┬────────────────┘  │
-                              │ idle 30s          │ user message
-                              ▼                   │
-              ┌────────────────────────────────┐  │
-              │            waiting             │──┘
-              └───────────────┬────────────────┘
-                              │ agent completes
-                              ▼
-              ┌────────────────────────────────┐
-              │           finished             │
-              └────────────────────────────────┘
+- Outline icons (not filled) for most UI elements
+- Consistent 24px viewBox
+- 2px stroke width
+- Current color for flexibility
 
-From any state:
-  ─── error ───▶ [error]     (on failure)
-  ─── stop ────▶ [stopped]   (user action)
-```
+### Common Icons
 
-### Session Startup Flow
-
-```
-1. UI: POST /api/repos/{id}/sessions
-2. Server: Create session record (starting)
-3. Server: Generate branch name (agent/{repo}/{id})
-4. Git: Ensure mirror exists and is current
-5. Git: Create worktree with new branch
-6. Server: Update session with worktree path
-7. GitHub: Get authentication token
-8. Docker: Start container with mounts and env
-9. Server: Update session with container ID
-10. Server: Record session.started event
-11. Container: Initialize and connect WebSocket
-12. Container: Send process.started event
-13. Container: Launch Claude Code with goal prompt
-14. Server: Update status to running
-```
-
-### Idle Detection
-
-The container WebSocket client monitors activity:
-1. Track timestamp of last Claude Code output
-2. After 30 seconds of inactivity:
-   - Send `session.idle` event to manager
-   - Manager updates session status to `waiting`
-   - UI shows input field enabled
+| Context | Icon | Description |
+|---------|------|-------------|
+| Repository | Folder | Document storage |
+| Session | Terminal | Code execution |
+| Running | Circle | Filled, pulsing |
+| Waiting | Clock | Needs input |
+| Error | X in circle | Alert state |
+| Add | Plus | Create action |
+| Back | Chevron left | Navigation |
+| External | Arrow diagonal | Opens new tab |
 
 ---
 
-## Security Model
+## Dark Mode Implementation
 
-### GitHub Authentication
+### Strategy
 
-- Uses locally configured `gh` CLI authentication
-- Token obtained dynamically via `gh auth token`
-- Passed to container via environment variable
-- Used for git operations and API calls
-- Never persisted to database
+Dark mode is the primary design target with light mode as an adaptation.
 
-### Container Isolation
+### Color Mapping
 
-- **Non-root execution**: Runs as `agent` user
-- **Resource limits**: 4GB RAM, 2 CPU cores
-- **Mount restrictions**: Only workspace and Claude config
-- **No privileged mode**: Standard container security
+| Element | Dark Mode | Light Mode |
+|---------|-----------|------------|
+| Background | #0f172a | #ffffff |
+| Card | #1e293b | #f8fafc |
+| Text | #f1f5f9 | #0f172a |
+| Text muted | #94a3b8 | #64748b |
+| Border | #334155 | #e2e8f0 |
 
-### WebSocket Security
+### Automatic Detection
 
-- Implicit authentication via session ID ownership
-- Containers identify themselves by session ID
-- UI clients tracked by connection ID
-- Local-only deployment assumption (no HTTPS/auth tokens)
+Uses `prefers-color-scheme` media query for automatic theme selection:
 
-### Credential Handling
-
-- GitHub token: Environment variable only, not logged
-- Claude config: Read-only mount from host
-- Git operations: Credential helper configured per-session
-
----
-
-## Error Handling
-
-### Session Creation Errors
-
-| Condition | Response | Recovery |
-|-----------|----------|----------|
-| Invalid repo | 404 | Use valid repo ID |
-| Git clone failure | 500, status='error' | Check network/auth |
-| Worktree creation failure | 500, status='error' | Check disk space |
-| Docker start failure | 500, status='error' | Check Docker daemon |
-| Token unavailable | 500 | Run `gh auth login` |
-
-### Runtime Errors
-
-| Condition | Detection | Action |
-|-----------|-----------|--------|
-| Container crash | Docker event / WS disconnect | Set status='error', record event |
-| Network failure | WS disconnect | Attempt reconnection (10 tries) |
-| Git push failure | Claude event | Agent handles retry |
-
-### Message Delivery Errors
-
-| Condition | Response | Recovery |
-|-----------|----------|----------|
-| Session not found | 404 | Use valid session ID |
-| Not in waiting state | 400 | Wait or use force=true |
-| Container disconnected | 400 | Session may have crashed |
-
----
-
-## Testing Strategy
-
-### Test Configuration
-
-```typescript
-// vite.config.ts
-projects: [
-  {
-    name: 'client',
-    browser: { enabled: true, provider: playwright() },
-    include: ['src/**/*.svelte.{test,spec}.{js,ts}']
-  },
-  {
-    name: 'server',
-    environment: 'node',
-    include: ['src/**/*.{test,spec}.{js,ts}'],
-    exclude: ['src/**/*.svelte.{test,spec}.{js,ts}']
+```css
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Dark mode values */
   }
-]
+}
 ```
-
-### Test Categories
-
-1. **Unit Tests**: Individual module functions
-2. **Component Tests**: Svelte components with mocked APIs
-3. **Integration Tests**: API routes with test database
-4. **E2E Tests**: Full flows with Playwright browser
 
 ---
 
-## Deployment
+## Timeline Design
 
-### Development Setup
+The session timeline is a key component displaying real-time events.
 
-```bash
-# Install dependencies
-npm install
+### Event Styling
 
-# Configure environment
-cp .env.example .env
-# Edit .env with DATABASE_URL
+Events are differentiated by source using left border color:
 
-# Setup database
-npm run db:push
+| Source | Border Color | Icon |
+|--------|--------------|------|
+| Claude | Blue (#3b82f6) | Robot |
+| Runner | Green (#10b981) | Gear |
+| Manager | Slate (#64748b) | Clipboard |
+| User | Amber (#f59e0b) | User |
 
-# Build Docker image
-cd docker && ./build.sh
+### Visual Structure
 
-# Start dev server
-npm run dev  # localhost:5173
+```
+┌─────────────────────────────────────────┐
+│ 🤖 claude.message           10:23:45 AM │
+│────────────────────────────────────────│
+│ Event content displayed in monospace   │
+│ with proper word wrapping and syntax   │
+│ highlighting for code blocks.          │
+└─────────────────────────────────────────┘
 ```
 
-### Production Deployment
+### Auto-scroll Behavior
 
-```bash
-# Build application
-npm run build
+- Automatically scrolls to new events
+- Pauses auto-scroll when user scrolls up
+- Resumes when user scrolls to bottom
 
-# Start server
-PORT=8080 node server.js
-```
+---
+
+## Page-Specific Design
+
+### Home Page (Repository List)
+
+- Grid of repository cards
+- Each card shows:
+  - Repository name (prominent)
+  - Default branch (subtle)
+  - Activity indicator (status dot)
+  - Session counts
+  - Last activity time
+- Empty state with illustration and CTA
+- Add button in page header
+
+### Repository Detail
+
+- Back navigation with breadcrumb
+- Repository name and metadata in header
+- GitHub link button
+- Two-column layout:
+  - Left: Sessions (active + past)
+  - Right: Documentation tabs
+- Start session modal with role selection
+
+### Session Detail
+
+- Compact header with status info
+- Full-height timeline (viewport minus header)
+- Sticky input area at bottom
+- Real-time WebSocket updates
+- Context-aware input placeholder
+
+---
+
+## Accessibility
 
 ### Requirements
 
-| Requirement | Version | Purpose |
-|-------------|---------|---------|
-| Node.js | 20+ | Runtime |
-| PostgreSQL | 15+ | Data storage |
-| Docker | 24+ | Container runtime |
-| gh CLI | 2.0+ | GitHub integration |
+- Color contrast ratio: 4.5:1 minimum
+- Focus indicators visible on all interactive elements
+- Keyboard navigation support
+- ARIA labels for icon-only buttons
+- Reduced motion support
+
+### Focus States
+
+```css
+*:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+```
+
+### Motion Preferences
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+```
 
 ---
 
-## Future Considerations
+## Implementation Notes
 
-### Potential Enhancements
+### CSS Architecture
 
-1. **Multi-User Support**: Add authentication and user isolation
-2. **Remote Deployment**: HTTPS, proper auth tokens, remote Docker
-3. **Session Resume**: Reconnect to existing containers
-4. **Event Replay**: Full session playback from stored events
-5. **Branch Merging**: Automated PR creation and merge flows
-6. **Resource Monitoring**: Container metrics and alerts
-7. **Plugin System**: Custom event handlers and integrations
+- Tailwind CSS for utilities
+- CSS custom properties for theming
+- Semantic class names for complex components
+- BEM-inspired naming for custom classes
 
-### Scalability Notes
+### Performance
 
-- Single PostgreSQL handles events at ~1000/sec
-- WebSocket connections limited by Node.js memory
-- Docker containers limited by host resources
-- Git mirrors cached indefinitely (may need pruning)
+- Use `transform` and `opacity` for animations
+- Avoid layout-triggering properties in transitions
+- Lazy load heavy components
+- Virtualize long event lists (future)
+
+### File Organization
+
+```
+src/
+├── app.css                 # Global styles, design tokens
+├── lib/components/         # Reusable UI components
+│   ├── StatusBadge.svelte
+│   ├── RoleBadge.svelte
+│   └── TimeAgo.svelte
+└── routes/                 # Page-specific styles inline
+```
