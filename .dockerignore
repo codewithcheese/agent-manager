@@ -1,0 +1,13 @@
+node_modules
+build
+.svelte-kit
+.git
+.gitignore
+*.md
+.env*
+docker-compose.yml
+Dockerfile
+.dockerignore
+e2e
+*.test.ts
+*.spec.ts

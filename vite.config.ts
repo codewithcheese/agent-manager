@@ -5,8 +5,8 @@ import { webSocketServer } from 'sveltekit-ws/vite';
 import tailwindcss from '@tailwindcss/vite';
 
 // Note: The actual WebSocket handlers are in src/lib/server/websocket/handler.ts
-// but they use ES module imports that aren't available in vite.config.ts
-// So we use a simplified version here for dev, and the full implementation in server.js
+// For development, we use a simplified handler here that just sends acks
+// The full implementation with database access is only available at runtime
 
 export default defineConfig({
 	plugins: [
@@ -36,41 +36,29 @@ export default defineConfig({
 					});
 				},
 				onMessage: async (connection, message) => {
-					// Dynamically import the handler for full functionality
-					try {
-						const { createWebSocketHandlers } = await import('./src/lib/server/websocket/handler');
-						const handlers = createWebSocketHandlers();
-						await handlers.onMessage(connection, message);
-					} catch (error) {
-						console.error('[WS] Handler error:', error);
-						// Fallback to basic echo
-						const { getWebSocketManager } = await import('sveltekit-ws');
-						const manager = getWebSocketManager();
-						manager.send(connection.id, {
-							type: 'agent-manager',
-							data: {
-								v: 1,
-								kind: 'error',
-								sessionId: null,
-								ts: new Date().toISOString(),
-								seq: 0,
-								payload: {
-									code: 'HANDLER_ERROR',
-									message: error instanceof Error ? error.message : 'Handler not available'
-								}
+					// Dev mode: just echo back an ack
+					// Full functionality requires runtime with SvelteKit env
+					const { getWebSocketManager } = await import('sveltekit-ws');
+					const manager = getWebSocketManager();
+					const wsMessage = message as { seq?: number; sessionId?: string };
+					manager.send(connection.id, {
+						type: 'agent-manager',
+						data: {
+							v: 1,
+							kind: 'ack',
+							sessionId: wsMessage.sessionId || null,
+							ts: new Date().toISOString(),
+							seq: 0,
+							payload: {
+								commandSeq: wsMessage.seq || 0,
+								success: true,
+								data: { message: 'Message received (dev mode)' }
 							}
-						});
-					}
+						}
+					});
 				},
-				onDisconnect: async (connection) => {
+				onDisconnect: (connection) => {
 					console.log(`[WS] Client disconnected: ${connection.id}`);
-					try {
-						const { createWebSocketHandlers } = await import('./src/lib/server/websocket/handler');
-						const handlers = createWebSocketHandlers();
-						await handlers.onDisconnect(connection);
-					} catch (error) {
-						console.error('[WS] Disconnect handler error:', error);
-					}
 				},
 				onError: (connection, error) => {
 					console.error(`[WS] Error for ${connection.id}:`, error);

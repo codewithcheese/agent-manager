@@ -30,13 +30,36 @@ A local-first Web UI for managing multiple agentic coding sessions across multip
 
 ## Quick Start
 
-### 1. Install Dependencies
+### Option A: Docker Compose (Recommended)
+
+The easiest way to run Agent Manager with PostgreSQL:
+
+```sh
+# Start all services
+docker compose up --build
+
+# Or run in background
+docker compose up -d --build
+```
+
+This starts:
+- **App**: http://localhost:3000
+- **PostgreSQL**: localhost:5432 (user: `agent_manager`, password: `agent_manager`)
+
+To stop:
+```sh
+docker compose down
+```
+
+### Option B: Manual Setup
+
+#### 1. Install Dependencies
 
 ```sh
 npm install
 ```
 
-### 2. Configure Environment
+#### 2. Configure Environment
 
 Copy the example environment file:
 
@@ -50,7 +73,7 @@ Edit `.env` with your PostgreSQL connection string:
 DATABASE_URL=postgresql://user:password@localhost:5432/agent_manager
 ```
 
-### 3. Set Up Database
+#### 3. Set Up Database
 
 Push the schema to your database:
 
@@ -58,7 +81,7 @@ Push the schema to your database:
 npm run db:push
 ```
 
-### 4. Build Agent Container
+#### 4. Build Agent Container
 
 ```sh
 cd docker
@@ -66,7 +89,7 @@ chmod +x build.sh
 ./build.sh
 ```
 
-### 5. Start Development Server
+#### 5. Start Development Server
 
 ```sh
 npm run dev
@@ -225,31 +248,24 @@ npm run db:studio    # Open Drizzle Studio
 
 ## Production
 
-### Build
+### Docker Compose (Recommended)
+
+```sh
+docker compose up -d --build
+```
+
+This runs the app with PostgreSQL. Data is persisted in a Docker volume.
+
+### Manual Build
 
 ```sh
 npm run build
+node build
 ```
 
-### Run
-
+With custom port:
 ```sh
-node server.js
-# or with custom port
-PORT=8080 node server.js
-```
-
-### Docker Deployment
-
-```dockerfile
-FROM node:20-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --production
-COPY . .
-RUN npm run build
-EXPOSE 3000
-CMD ["node", "server.js"]
+PORT=8080 node build
 ```
 
 ## Project Structure

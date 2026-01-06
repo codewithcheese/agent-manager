@@ -16,6 +16,23 @@ npm test
 npm run check
 ```
 
+## Before Committing
+
+**Always run these checks before committing:**
+
+```bash
+# 1. Run type checking
+npm run check
+
+# 2. Run all tests
+npm test
+
+# 3. Run build to catch any build-time errors
+npm run build
+```
+
+All three must pass before committing. The CI workflow will also run these checks on push and PR.
+
 ## Testing
 
 ### Running Tests
@@ -157,3 +174,18 @@ src/
 2. Export from module index if needed
 3. Write unit tests for pure functions
 4. Add mock factory to `src/test/fixtures.ts`
+
+## Documentation
+
+### Keeping README Updated
+
+When making changes that affect how users or developers interact with the project, update `README.md`. This includes:
+
+- **New environment variables** - Document required/optional env vars
+- **Docker/deployment changes** - Update setup instructions
+- **New npm scripts** - Document new commands
+- **Changed prerequisites** - Node version, database requirements, etc.
+- **API changes** - Document new endpoints or breaking changes
+- **Configuration changes** - New config files or options
+
+The README is for end users and new developers. CLAUDE.md is for AI assistants and detailed development workflows.

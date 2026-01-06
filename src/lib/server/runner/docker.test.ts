@@ -8,37 +8,39 @@ import { describe, it, expect } from 'vitest';
 import { createDockerModule, DockerError } from './docker';
 
 describe('Docker Module - Pure Functions', () => {
+	const defaultConfig = { port: 3000 };
+
 	describe('getHostUrl', () => {
 		it('generates host.docker.internal URL', () => {
-			const docker = createDockerModule();
+			const docker = createDockerModule(defaultConfig);
 			const url = docker.getHostUrl(3000);
 
 			expect(url).toBe('http://host.docker.internal:3000');
 		});
 
 		it('handles standard HTTP port', () => {
-			const docker = createDockerModule();
+			const docker = createDockerModule(defaultConfig);
 			const url = docker.getHostUrl(80);
 
 			expect(url).toBe('http://host.docker.internal:80');
 		});
 
 		it('handles HTTPS port', () => {
-			const docker = createDockerModule();
+			const docker = createDockerModule(defaultConfig);
 			const url = docker.getHostUrl(443);
 
 			expect(url).toBe('http://host.docker.internal:443');
 		});
 
 		it('handles high port numbers', () => {
-			const docker = createDockerModule();
+			const docker = createDockerModule(defaultConfig);
 			const url = docker.getHostUrl(65535);
 
 			expect(url).toBe('http://host.docker.internal:65535');
 		});
 
 		it('handles common dev ports', () => {
-			const docker = createDockerModule();
+			const docker = createDockerModule(defaultConfig);
 
 			expect(docker.getHostUrl(5173)).toBe('http://host.docker.internal:5173');
 			expect(docker.getHostUrl(8080)).toBe('http://host.docker.internal:8080');

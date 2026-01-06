@@ -16,9 +16,9 @@ import type {
 	RepoSummary,
 	SessionSummary,
 	StoredEvent
-} from '$lib/types/websocket';
-import { db } from '$lib/server/db';
-import { repos, sessions, events } from '$lib/server/db/schema';
+} from '../../types/websocket';
+import { db } from '../db';
+import { repos, sessions, events } from '../db/schema';
 import { eq, desc, and, gt } from 'drizzle-orm';
 
 // Define our own connection interface since sveltekit-ws doesn't export it
