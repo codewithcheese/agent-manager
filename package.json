@@ -37,6 +37,7 @@
 		"vitest-browser-svelte": "^2.0.1"
 	},
 	"dependencies": {
+		"@anthropic-ai/claude-code": "^2.0.76",
 		"@sveltejs/adapter-node": "^5.4.0",
 		"express": "^5.2.1",
 		"postgres": "^3.4.7",
