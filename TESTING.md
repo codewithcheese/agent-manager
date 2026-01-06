@@ -1,5 +1,26 @@
 # Agent Manager - Testing Strategy
 
+## Maintaining This Document
+
+**When to update TESTING.md:**
+- Adding a new test file → Add example to appropriate pyramid layer section
+- Adding a new test utility/fixture → Document in "Test Fixtures" or "Mocking Strategies"
+- Changing test configuration → Update "Test Configuration" section
+- Adding new integration points → Add to "Claude Code Integration Testing" or create new section
+
+**How to update:**
+1. Place new test examples in the correct pyramid layer (Unit → Integration → Component → E2E)
+2. Include the file path as a header: `**File:** \`path/to/test.ts\``
+3. Show realistic, runnable code examples
+4. Document any new mocking patterns or fixtures
+
+**Keep synchronized with:**
+- Actual test files in `src/**/*.test.ts`
+- Test configuration in `vitest.config.ts`
+- CI workflow in `.github/workflows/ci.yml`
+
+---
+
 ## Testing Pyramid
 
 ```
@@ -1993,6 +2014,442 @@ export async function seedTestData() {
 
   return { repo1, repo2, activeSession, waitingSession };
 }
+```
+
+---
+
+## Claude Code Integration Testing
+
+The Claude Code integration is a critical path that spans multiple layers of the testing pyramid:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  E2E (5%)        │ Full session lifecycle with real Claude │
+├──────────────────┼──────────────────────────────────────────┤
+│  Component (10%) │ Session UI with mocked WebSocket        │
+├──────────────────┼──────────────────────────────────────────┤
+│  Integration     │ Container deployment tests              │
+│  (25%)           │ WebSocket round-trip tests              │
+│                  │ Session API with mocked docker          │
+├──────────────────┼──────────────────────────────────────────┤
+│  Unit (60%)      │ Agent runner pure functions             │
+│                  │ Contract tests (message format)         │
+│                  │ System prompt building                  │
+└──────────────────┴──────────────────────────────────────────┘
+```
+
+**Testing priority for Claude integration:**
+1. Unit tests for agent-runner.ts functions (fast, isolated)
+2. Contract tests ensuring message compatibility
+3. Integration tests for docker deployment and WebSocket flow
+4. E2E tests for full session lifecycle (slowest, most brittle)
+
+### Agent Runner Unit Tests (Layer 1: Unit)
+
+**File:** `docker/agent-runner.test.ts`
+
+```typescript
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// Test the pure functions extracted from agent-runner.ts
+describe('Agent Runner - Message Creation', () => {
+  it('creates valid WebSocket message', () => {
+    const msg = createMessage('event', { test: true });
+
+    expect(msg).toMatchObject({
+      v: 1,
+      kind: 'event',
+      sessionId: expect.any(String),
+      ts: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T/),
+      seq: expect.any(Number),
+      payload: { test: true }
+    });
+  });
+
+  it('increments sequence number', () => {
+    const msg1 = createMessage('event', {});
+    const msg2 = createMessage('event', {});
+    expect(msg2.seq).toBeGreaterThan(msg1.seq);
+  });
+});
+
+describe('Agent Runner - System Prompt Building', () => {
+  it('includes implementer instructions for implementer role', () => {
+    process.env.AGENT_ROLE = 'implementer';
+    const prompt = buildSystemPrompt();
+
+    expect(prompt).toContain('As an Implementer');
+    expect(prompt).toContain('Focus on writing code');
+  });
+
+  it('includes orchestrator instructions for orchestrator role', () => {
+    process.env.AGENT_ROLE = 'orchestrator';
+    const prompt = buildSystemPrompt();
+
+    expect(prompt).toContain('As the Orchestrator');
+    expect(prompt).toContain('coordinate work');
+  });
+
+  it('includes session ID in prompt', () => {
+    process.env.SESSION_ID = 'test-session-123';
+    const prompt = buildSystemPrompt();
+
+    expect(prompt).toContain('test-session-123');
+  });
+});
+
+describe('Agent Runner - Command Handling', () => {
+  it('handles user_message command', () => {
+    const mockStdin = { write: vi.fn() };
+    handleCommand({ type: 'user_message', message: 'Hello' }, mockStdin);
+
+    expect(mockStdin.write).toHaveBeenCalledWith(
+      expect.stringContaining('Hello')
+    );
+  });
+
+  it('ignores user_message without message content', () => {
+    const mockStdin = { write: vi.fn() };
+    handleCommand({ type: 'user_message' }, mockStdin);
+
+    expect(mockStdin.write).not.toHaveBeenCalled();
+  });
+});
+```
+
+### Claude CLI Output Mocking (Test Fixture)
+
+**File:** `src/test/mocks/claude-cli.ts`
+
+```typescript
+import { Readable } from 'stream';
+
+/**
+ * Creates a mock Claude CLI stdout stream that emits JSON messages
+ * matching the real --output-format stream-json output
+ */
+export function createMockClaudeOutput(messages: any[]): Readable {
+  const stream = new Readable({
+    read() {
+      for (const msg of messages) {
+        this.push(JSON.stringify(msg) + '\n');
+      }
+      this.push(null); // End stream
+    }
+  });
+  return stream;
+}
+
+/**
+ * Sample Claude CLI output messages for testing
+ */
+export const sampleClaudeMessages = {
+  textMessage: {
+    type: 'assistant',
+    message: {
+      type: 'text',
+      text: 'I understand. Let me analyze the code.'
+    }
+  },
+
+  toolUse: {
+    type: 'assistant',
+    message: {
+      type: 'tool_use',
+      name: 'Read',
+      input: { file_path: '/workspace/src/index.ts' }
+    }
+  },
+
+  toolResult: {
+    type: 'tool_result',
+    tool_use_id: 'tool_123',
+    content: 'File contents here...'
+  },
+
+  turnComplete: {
+    type: 'assistant',
+    stop_reason: 'end_turn'
+  },
+
+  result: {
+    type: 'result',
+    cost: { input_tokens: 1000, output_tokens: 500 },
+    duration_ms: 5000
+  }
+};
+```
+
+### Container Deployment Tests (Layer 2: Integration)
+
+**File:** `src/lib/server/runner/docker.integration.test.ts`
+
+```typescript
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createDockerModule } from './docker';
+
+// Mock child_process.exec to capture docker commands
+const mockExec = vi.fn();
+vi.mock('child_process', () => ({
+  exec: mockExec,
+  spawn: vi.fn()
+}));
+
+describe('Docker Container Deployment', () => {
+  beforeEach(() => {
+    mockExec.mockReset();
+    mockExec.mockImplementation((cmd, opts, cb) => {
+      if (typeof opts === 'function') cb = opts;
+      cb(null, { stdout: 'container-id-123', stderr: '' });
+    });
+  });
+
+  it('passes all required environment variables', async () => {
+    const docker = createDockerModule({ port: 3000 });
+
+    await docker.startContainer({
+      sessionId: 'session-123',
+      worktreePath: '/tmp/workspace',
+      ghToken: 'gh-token',
+      managerUrl: 'http://host.docker.internal:3000/ws',
+      containerImage: 'agent-sandbox:latest',
+      role: 'implementer',
+      goalPrompt: 'Fix the bug',
+      model: 'sonnet'
+    });
+
+    const dockerCmd = mockExec.mock.calls[0][0];
+
+    // Verify all env vars are present
+    expect(dockerCmd).toContain('SESSION_ID=session-123');
+    expect(dockerCmd).toContain('AGENT_MANAGER_URL=http://host.docker.internal:3000/ws');
+    expect(dockerCmd).toContain('GH_TOKEN=gh-token');
+    expect(dockerCmd).toContain('AGENT_ROLE=implementer');
+    expect(dockerCmd).toContain('GOAL_PROMPT=Fix the bug');
+    expect(dockerCmd).toContain('CLAUDE_MODEL=sonnet');
+  });
+
+  it('uses default model when not specified', async () => {
+    const docker = createDockerModule({ port: 3000 });
+
+    await docker.startContainer({
+      sessionId: 'session-123',
+      worktreePath: '/tmp/workspace',
+      ghToken: 'gh-token',
+      managerUrl: 'http://host.docker.internal:3000/ws',
+      containerImage: 'agent-sandbox:latest'
+    });
+
+    const dockerCmd = mockExec.mock.calls[0][0];
+    expect(dockerCmd).toContain('CLAUDE_MODEL=sonnet');
+  });
+
+  it('mounts Claude config directory', async () => {
+    const docker = createDockerModule({ port: 3000 });
+
+    await docker.startContainer({
+      sessionId: 'session-123',
+      worktreePath: '/tmp/workspace',
+      ghToken: 'gh-token',
+      managerUrl: 'http://host.docker.internal:3000/ws',
+      containerImage: 'agent-sandbox:latest'
+    });
+
+    const dockerCmd = mockExec.mock.calls[0][0];
+    expect(dockerCmd).toContain('.claude:/home/agent/.claude:ro');
+  });
+});
+```
+
+### WebSocket Round-Trip Tests (Layer 3: WebSocket Handler)
+
+**File:** `src/lib/server/websocket/integration.test.ts`
+
+```typescript
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createWebSocketHandlers } from './handler';
+import { createTestRepo, createTestSession } from '$test/fixtures';
+
+describe('WebSocket Claude Message Flow', () => {
+  let handlers: ReturnType<typeof createWebSocketHandlers>;
+  const mockSend = vi.fn();
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mock('sveltekit-ws', () => ({
+      getWebSocketManager: () => ({ send: mockSend, broadcast: vi.fn() })
+    }));
+    handlers = createWebSocketHandlers();
+  });
+
+  it('persists claude message and broadcasts to subscribers', async () => {
+    const repo = await createTestRepo();
+    const session = await createTestSession(repo.id);
+
+    // UI subscribes to session
+    await handlers.onMessage(
+      { id: 'ui-conn' },
+      {
+        type: 'agent-manager',
+        data: {
+          v: 1,
+          kind: 'command',
+          sessionId: null,
+          ts: new Date().toISOString(),
+          seq: 1,
+          payload: { type: 'subscribe.session', sessionId: session.id }
+        }
+      }
+    );
+
+    // Container sends claude message (simulating agent-runner.ts output)
+    await handlers.onMessage(
+      { id: 'container-conn' },
+      {
+        type: 'agent-manager',
+        data: {
+          v: 1,
+          kind: 'event',
+          sessionId: session.id,
+          ts: new Date().toISOString(),
+          seq: 1,
+          payload: {
+            claudeMessage: {
+              type: 'assistant',
+              message: { type: 'text', text: 'Working on it...' }
+            }
+          }
+        }
+      }
+    );
+
+    // Verify UI received the message
+    expect(mockSend).toHaveBeenCalledWith(
+      'ui-conn',
+      expect.objectContaining({
+        data: expect.objectContaining({
+          kind: 'event',
+          payload: expect.objectContaining({
+            claudeMessage: expect.any(Object)
+          })
+        })
+      })
+    );
+  });
+
+  it('forwards user message to container', async () => {
+    const repo = await createTestRepo();
+    const session = await createTestSession(repo.id, { status: 'waiting' });
+
+    // Register container connection
+    await handlers.onMessage(
+      { id: 'container-conn' },
+      {
+        type: 'agent-manager',
+        data: {
+          v: 1,
+          kind: 'event',
+          sessionId: session.id,
+          ts: new Date().toISOString(),
+          seq: 1,
+          payload: { runnerEvent: { type: 'process.started' } }
+        }
+      }
+    );
+
+    // UI sends user message command
+    await handlers.onMessage(
+      { id: 'ui-conn' },
+      {
+        type: 'agent-manager',
+        data: {
+          v: 1,
+          kind: 'command',
+          sessionId: session.id,
+          ts: new Date().toISOString(),
+          seq: 1,
+          payload: { type: 'user_message', message: 'Please continue' }
+        }
+      }
+    );
+
+    // Verify container received the message
+    expect(mockSend).toHaveBeenCalledWith(
+      'container-conn',
+      expect.objectContaining({
+        data: expect.objectContaining({
+          kind: 'command',
+          payload: expect.objectContaining({
+            type: 'user_message',
+            message: 'Please continue'
+          })
+        })
+      })
+    );
+  });
+});
+```
+
+### Contract Tests (Layer 1: Unit)
+
+Ensure message format compatibility between agent-runner.ts and handler.ts:
+
+**File:** `src/test/contracts/websocket-messages.test.ts`
+
+```typescript
+import { describe, it, expect } from 'vitest';
+
+// Import types from both sides
+import type { WSMessage } from '$lib/types/websocket';
+
+describe('WebSocket Message Contract', () => {
+  it('agent-runner message matches handler expectation', () => {
+    // Message format that agent-runner.ts produces
+    const agentMessage = {
+      v: 1,
+      kind: 'event',
+      sessionId: 'session-123',
+      ts: new Date().toISOString(),
+      seq: 1,
+      payload: {
+        claudeMessage: { type: 'text', text: 'Hello' }
+      }
+    };
+
+    // Validate against WSMessage type
+    const isValid = (msg: any): msg is WSMessage => {
+      return (
+        msg.v === 1 &&
+        ['event', 'command', 'ack', 'error', 'snapshot'].includes(msg.kind) &&
+        (msg.sessionId === null || typeof msg.sessionId === 'string') &&
+        typeof msg.ts === 'string' &&
+        typeof msg.seq === 'number' &&
+        typeof msg.payload === 'object'
+      );
+    };
+
+    expect(isValid(agentMessage)).toBe(true);
+  });
+
+  it('runner event types are handled by handler', () => {
+    const runnerEventTypes = [
+      'process.started',
+      'process.exited',
+      'process.stdout',
+      'process.stderr',
+      'process.error',
+      'session.idle',
+      'session.turn_complete',
+      'session.result',
+      'heartbeat'
+    ];
+
+    // These should all be handled by the WebSocket handler
+    // This test documents the contract
+    expect(runnerEventTypes).toContain('process.started');
+    expect(runnerEventTypes).toContain('session.idle');
+  });
+});
 ```
 
 ---

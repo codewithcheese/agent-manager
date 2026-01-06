@@ -1,7 +1,7 @@
 # Agent Manager Sandbox Container
-# This container runs Claude Code Agent SDK sessions
+# Runs Claude Code CLI with streaming JSON for Agent Manager integration
 
-FROM node:20-slim
+FROM node:22-slim
 
 # Install essential tools
 RUN apt-get update && apt-get install -y \
@@ -28,18 +28,24 @@ RUN useradd -m -s /bin/bash agent
 RUN mkdir -p /workspace /home/agent/.claude
 RUN chown -R agent:agent /workspace /home/agent
 
-# Install Claude Code CLI (npm global)
-# Note: This assumes @anthropic-ai/claude-code is published to npm
-# For development, you might need to mount the Claude Code binary instead
-RUN npm install -g @anthropic-ai/claude-code || echo "Claude Code not available on npm, will use mounted binary"
+# Install Claude Code CLI globally
+RUN npm install -g @anthropic-ai/claude-code
 
-# Copy agent entry script
+# Install tsx for running TypeScript and ws for WebSocket
+RUN npm install -g tsx
+
+# Copy agent runner
+COPY agent-runner.ts /home/agent/agent-runner.ts
+RUN chown agent:agent /home/agent/agent-runner.ts
+
+# Copy entrypoint script
 COPY agent-entrypoint.sh /usr/local/bin/agent-entrypoint.sh
 RUN chmod +x /usr/local/bin/agent-entrypoint.sh
 
-# Copy WebSocket client script
-COPY agent-ws-client.js /home/agent/agent-ws-client.js
-RUN chown agent:agent /home/agent/agent-ws-client.js
+# Install ws package for the agent runner
+WORKDIR /home/agent
+RUN npm init -y && npm install ws
+RUN chown -R agent:agent /home/agent
 
 # Switch to agent user
 USER agent
@@ -56,5 +62,7 @@ RUN git config --global init.defaultBranch main \
 # GH_TOKEN - GitHub token for push/PR operations
 # AGENT_ROLE - implementer or orchestrator
 # GOAL_PROMPT - Initial goal for the session
+# CLAUDE_MODEL - Model to use (default: sonnet)
+# SYSTEM_PROMPT - Custom system prompt (optional)
 
 ENTRYPOINT ["/usr/local/bin/agent-entrypoint.sh"]

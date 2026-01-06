@@ -62,13 +62,13 @@ export const POST: RequestHandler = async ({ params, request }) => {
 		baseBranch,
 		goalPrompt,
 		branchSuffix,
-		additionalInstructions
+		model = 'sonnet'
 	} = body as {
 		role?: SessionRole;
 		baseBranch?: string;
 		goalPrompt?: string;
 		branchSuffix?: string;
-		additionalInstructions?: string;
+		model?: string;
 	};
 
 	// Validate role
@@ -160,11 +160,9 @@ export const POST: RequestHandler = async ({ params, request }) => {
 			ghToken,
 			managerUrl: `${managerUrl}/ws`,
 			containerImage: process.env.CONTAINER_IMAGE || 'agent-manager-sandbox:latest',
-			additionalEnv: {
-				AGENT_ROLE: role,
-				GOAL_PROMPT: goalPrompt || '',
-				ADDITIONAL_INSTRUCTIONS: additionalInstructions || ''
-			}
+			role,
+			goalPrompt: goalPrompt || '',
+			model
 		});
 
 		// Update session with container info
@@ -186,7 +184,8 @@ export const POST: RequestHandler = async ({ params, request }) => {
 				branchName,
 				baseBranch: actualBaseBranch,
 				containerId: containerInfo.containerId,
-				goalPrompt
+				goalPrompt,
+				model
 			}
 		});
 

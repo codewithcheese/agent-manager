@@ -17,7 +17,7 @@ export default defineConfig({
 	},
 
 	test: {
-		include: ['src/**/*.{test,spec}.{js,ts}'],
+		include: ['src/**/*.{test,spec}.{js,ts}', 'docker/**/*.{test,spec}.{js,ts}'],
 		exclude: ['src/**/*.svelte.{test,spec}.{js,ts}', 'node_modules'],
 		environment: 'node',
 		setupFiles: ['src/test/setup.server.ts'],
