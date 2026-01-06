@@ -23,6 +23,12 @@ export interface ContainerConfig {
 	containerImage: string;
 	claudeConfigPath?: string;
 	additionalEnv?: Record<string, string>;
+	/** Agent role: implementer or orchestrator */
+	role?: string;
+	/** Initial goal/task prompt */
+	goalPrompt?: string;
+	/** Claude model to use (default: sonnet) */
+	model?: string;
 }
 
 export interface ContainerInfo {
@@ -130,7 +136,10 @@ export function createDockerModule(config: Pick<AgentManagerConfig, 'port'>): Do
 			managerUrl,
 			containerImage,
 			claudeConfigPath,
-			additionalEnv = {}
+			additionalEnv = {},
+			role = 'implementer',
+			goalPrompt = '',
+			model = 'sonnet'
 		} = containerConfig;
 
 		// Build docker run command
@@ -160,6 +169,12 @@ export function createDockerModule(config: Pick<AgentManagerConfig, 'port'>): Do
 			`AGENT_MANAGER_URL=${managerUrl}`,
 			'-e',
 			`SESSION_ID=${sessionId}`,
+			'-e',
+			`AGENT_ROLE=${role}`,
+			'-e',
+			`GOAL_PROMPT=${goalPrompt}`,
+			'-e',
+			`CLAUDE_MODEL=${model}`,
 
 			// Additional env vars
 			...Object.entries(additionalEnv).flatMap(([k, v]) => ['-e', `${k}=${v}`]),
