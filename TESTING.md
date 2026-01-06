@@ -1999,13 +1999,31 @@ export async function seedTestData() {
 
 ## Claude Code Integration Testing
 
-The Claude Code integration is a critical path that requires special attention. The integration spans:
-- Container deployment (`docker.ts`)
-- Agent runner (`docker/agent-runner.ts`)
-- WebSocket handler (`websocket/handler.ts`)
-- Session API routes
+The Claude Code integration is a critical path that spans multiple layers of the testing pyramid:
 
-### Agent Runner Unit Tests
+```
+┌─────────────────────────────────────────────────────────────┐
+│  E2E (5%)        │ Full session lifecycle with real Claude │
+├──────────────────┼──────────────────────────────────────────┤
+│  Component (10%) │ Session UI with mocked WebSocket        │
+├──────────────────┼──────────────────────────────────────────┤
+│  Integration     │ Container deployment tests              │
+│  (25%)           │ WebSocket round-trip tests              │
+│                  │ Session API with mocked docker          │
+├──────────────────┼──────────────────────────────────────────┤
+│  Unit (60%)      │ Agent runner pure functions             │
+│                  │ Contract tests (message format)         │
+│                  │ System prompt building                  │
+└──────────────────┴──────────────────────────────────────────┘
+```
+
+**Testing priority for Claude integration:**
+1. Unit tests for agent-runner.ts functions (fast, isolated)
+2. Contract tests ensuring message compatibility
+3. Integration tests for docker deployment and WebSocket flow
+4. E2E tests for full session lifecycle (slowest, most brittle)
+
+### Agent Runner Unit Tests (Layer 1: Unit)
 
 **File:** `docker/agent-runner.test.ts`
 
@@ -2078,7 +2096,7 @@ describe('Agent Runner - Command Handling', () => {
 });
 ```
 
-### Claude CLI Output Mocking
+### Claude CLI Output Mocking (Test Fixture)
 
 **File:** `src/test/mocks/claude-cli.ts`
 
@@ -2141,7 +2159,7 @@ export const sampleClaudeMessages = {
 };
 ```
 
-### Container Deployment Tests
+### Container Deployment Tests (Layer 2: Integration)
 
 **File:** `src/lib/server/runner/docker.integration.test.ts`
 
@@ -2222,7 +2240,7 @@ describe('Docker Container Deployment', () => {
 });
 ```
 
-### WebSocket Round-Trip Tests
+### WebSocket Round-Trip Tests (Layer 3: WebSocket Handler)
 
 **File:** `src/lib/server/websocket/integration.test.ts`
 
@@ -2351,7 +2369,7 @@ describe('WebSocket Claude Message Flow', () => {
 });
 ```
 
-### Contract Tests
+### Contract Tests (Layer 1: Unit)
 
 Ensure message format compatibility between agent-runner.ts and handler.ts:
 
