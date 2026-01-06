@@ -1,5 +1,26 @@
 # Agent Manager - Testing Strategy
 
+## Maintaining This Document
+
+**When to update TESTING.md:**
+- Adding a new test file → Add example to appropriate pyramid layer section
+- Adding a new test utility/fixture → Document in "Test Fixtures" or "Mocking Strategies"
+- Changing test configuration → Update "Test Configuration" section
+- Adding new integration points → Add to "Claude Code Integration Testing" or create new section
+
+**How to update:**
+1. Place new test examples in the correct pyramid layer (Unit → Integration → Component → E2E)
+2. Include the file path as a header: `**File:** \`path/to/test.ts\``
+3. Show realistic, runnable code examples
+4. Document any new mocking patterns or fixtures
+
+**Keep synchronized with:**
+- Actual test files in `src/**/*.test.ts`
+- Test configuration in `vitest.config.ts`
+- CI workflow in `.github/workflows/ci.yml`
+
+---
+
 ## Testing Pyramid
 
 ```

@@ -189,3 +189,18 @@ When making changes that affect how users or developers interact with the projec
 - **Configuration changes** - New config files or options
 
 The README is for end users and new developers. CLAUDE.md is for AI assistants and detailed development workflows.
+
+### Keeping TESTING.md Updated
+
+When making changes to tests or testing infrastructure, update `TESTING.md`. This includes:
+
+- **New test files** - Add example to appropriate pyramid layer section
+- **New test utilities/fixtures** - Document in "Test Fixtures" or "Mocking Strategies"
+- **Test configuration changes** - Update "Test Configuration" section
+- **New integration points** - Add to "Claude Code Integration Testing" section
+
+**TESTING.md structure:**
+1. Tests are organized by pyramid layer (Unit → Integration → Component → E2E)
+2. Each test example includes file path and runnable code
+3. Mocking patterns are documented with examples
+4. Critical integrations (like Claude Code) have dedicated sections showing tests across all layers
