@@ -174,3 +174,18 @@ src/
 2. Export from module index if needed
 3. Write unit tests for pure functions
 4. Add mock factory to `src/test/fixtures.ts`
+
+## Documentation
+
+### Keeping README Updated
+
+When making changes that affect how users or developers interact with the project, update `README.md`. This includes:
+
+- **New environment variables** - Document required/optional env vars
+- **Docker/deployment changes** - Update setup instructions
+- **New npm scripts** - Document new commands
+- **Changed prerequisites** - Node version, database requirements, etc.
+- **API changes** - Document new endpoints or breaking changes
+- **Configuration changes** - New config files or options
+
+The README is for end users and new developers. CLAUDE.md is for AI assistants and detailed development workflows.
