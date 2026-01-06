@@ -16,6 +16,23 @@ npm test
 npm run check
 ```
 
+## Before Committing
+
+**Always run these checks before committing:**
+
+```bash
+# 1. Run type checking
+npm run check
+
+# 2. Run all tests
+npm test
+
+# 3. Run build to catch any build-time errors
+npm run build
+```
+
+All three must pass before committing. The CI workflow will also run these checks on push and PR.
+
 ## Testing
 
 ### Running Tests

@@ -9,7 +9,10 @@ const config = {
 
 	kit: {
 		// Using adapter-node for WebSocket support in production
-		adapter: adapter()
+		adapter: adapter(),
+		alias: {
+			$test: 'src/test'
+		}
 	}
 };
 
