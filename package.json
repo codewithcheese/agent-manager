@@ -40,6 +40,7 @@
 		"@anthropic-ai/claude-code": "^2.0.76",
 		"@sveltejs/adapter-node": "^5.4.0",
 		"express": "^5.2.1",
+		"lucide-svelte": "^0.562.0",
 		"postgres": "^3.4.7",
 		"sveltekit-ws": "^1.0.1",
 		"ws": "^8.19.0"
