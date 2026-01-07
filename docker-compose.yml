@@ -15,16 +15,5 @@ services:
       timeout: 5s
       retries: 5
 
-  app:
-    build: .
-    ports:
-      - "3000:3000"
-    environment:
-      DATABASE_URL: postgres://agent_manager:agent_manager@postgres:5432/agent_manager
-      ORIGIN: http://localhost:3000
-    depends_on:
-      postgres:
-        condition: service_healthy
-
 volumes:
   postgres_data:

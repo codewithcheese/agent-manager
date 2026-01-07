@@ -22,6 +22,9 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
+# Install gh CLI
+RUN apk add --no-cache github-cli
+
 # Copy built application
 COPY --from=builder /app/build ./build
 COPY --from=builder /app/package*.json ./

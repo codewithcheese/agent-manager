@@ -178,7 +178,10 @@ export function createGitHubModule(): GitHubModule {
 		}
 
 		args.push('--limit', String(limit));
-		args.push('--visibility', visibility);
+		// gh repo list only accepts public|private|internal, not 'all'
+		if (visibility !== 'all') {
+			args.push('--visibility', visibility);
+		}
 		args.push(
 			'--json',
 			'owner,name,nameWithOwner,defaultBranchRef,description,isPrivate,url,sshUrl'
