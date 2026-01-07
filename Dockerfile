@@ -30,8 +30,8 @@ COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/drizzle.config.ts ./
 COPY --from=builder /app/src/lib/server/db ./src/lib/server/db
 
-# Install production dependencies and drizzle-kit for migrations
-RUN npm ci --omit=dev && npm install drizzle-kit
+# Copy node_modules from builder (includes all deps including drizzle-kit)
+COPY --from=builder /app/node_modules ./node_modules
 
 # Copy entrypoint script
 COPY docker-entrypoint.sh ./
