@@ -6,6 +6,7 @@
 	import RoleBadge from '$lib/components/RoleBadge.svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
 	import type { SessionStatus, SessionRole } from '$lib/server/db/schema';
+	import { AlertCircle, ChevronLeft, GitBranch, Github, ExternalLink, Network, Plus, Terminal, ChevronRight, MessageSquare, FileText, X, Play } from 'lucide-svelte';
 
 	interface Session {
 		id: string;
@@ -145,17 +146,13 @@
 		<p class="mt-4 text-sm text-[var(--color-text-secondary)]">Loading repository...</p>
 	</div>
 {:else if error}
-	<div class="card border-[var(--color-error)]/30 bg-[var(--color-error-light)]">
+	<div class="card border-[var(--color-error)]/30 bg-[var(--color-error-subtle)]">
 		<div class="flex items-start gap-3">
-			<svg class="w-5 h-5 text-[var(--color-error)] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-			</svg>
+			<AlertCircle class="w-5 h-5 text-[var(--color-error)] flex-shrink-0 mt-0.5" strokeWidth={2} />
 			<div class="flex-1">
 				<p class="font-medium text-[var(--color-error)]">{error}</p>
 				<a href="/" class="btn btn-sm btn-secondary mt-3">
-					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-					</svg>
+					<ChevronLeft class="w-4 h-4" strokeWidth={2} />
 					Back to Repositories
 				</a>
 			</div>
@@ -171,16 +168,12 @@
 					class="flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg-secondary)] transition-all"
 					aria-label="Back to repositories"
 				>
-					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
-					</svg>
+					<ChevronLeft class="w-5 h-5" strokeWidth={2} />
 				</a>
 				<div class="flex-1 min-w-0">
 					<h1 class="text-2xl font-bold text-[var(--color-text)] truncate">{repo.fullName}</h1>
 					<p class="mt-1 text-sm text-[var(--color-text-secondary)] flex items-center gap-2">
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
-						</svg>
+						<GitBranch class="w-4 h-4" strokeWidth={2} />
 						{repo.defaultBranch}
 					</p>
 				</div>
@@ -189,13 +182,9 @@
 			<!-- Action Buttons -->
 			<div class="flex flex-wrap items-center gap-3">
 				<a href={repo.urls.repo} target="_blank" rel="noopener" class="btn btn-secondary btn-sm">
-					<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-						<path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"></path>
-					</svg>
+					<Github class="w-4 h-4" strokeWidth={1.5} />
 					View on GitHub
-					<svg class="w-3 h-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
-					</svg>
+					<ExternalLink class="w-3 h-3 opacity-50" strokeWidth={1.5} />
 				</a>
 				<button onclick={() => openOrchestrator()} class="btn btn-secondary btn-sm">
 					{#if orchestrator}
@@ -206,16 +195,12 @@
 						{/if}
 						Open Orchestrator
 					{:else}
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-						</svg>
+						<Network class="w-4 h-4" strokeWidth={1.5} />
 						Start Orchestrator
 					{/if}
 				</button>
 				<button onclick={() => { sessionRole = 'implementer'; showStartModal = true; }} class="btn btn-primary">
-					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-					</svg>
+					<Plus class="w-4 h-4" strokeWidth={2} />
 					New Session
 				</button>
 			</div>
@@ -254,9 +239,7 @@
 										</span>
 									</div>
 									<div class="mt-3 flex items-center gap-2">
-										<svg class="w-3.5 h-3.5 text-[var(--color-text-tertiary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
-										</svg>
+										<GitBranch class="w-3.5 h-3.5 text-[var(--color-text-tertiary)]" strokeWidth={2} />
 										<code class="text-xs text-[var(--color-text-secondary)] font-mono truncate">
 											{session.branchName}
 										</code>
@@ -268,11 +251,9 @@
 												target="_blank"
 												rel="noopener"
 												onclick={(e) => e.stopPropagation()}
-												class="text-xs text-[var(--color-primary)] hover:underline flex items-center gap-1"
+												class="text-xs text-[var(--color-accent)] hover:underline flex items-center gap-1"
 											>
-												<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
-												</svg>
+												<ChevronRight class="w-3.5 h-3.5" strokeWidth={2} />
 												Compare
 											</a>
 											{#if session.prUrl}
@@ -281,11 +262,9 @@
 													target="_blank"
 													rel="noopener"
 													onclick={(e) => e.stopPropagation()}
-													class="text-xs text-[var(--color-primary)] hover:underline flex items-center gap-1"
+													class="text-xs text-[var(--color-accent)] hover:underline flex items-center gap-1"
 												>
-													<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"></path>
-													</svg>
+													<MessageSquare class="w-3.5 h-3.5" strokeWidth={2} />
 													View PR
 												</a>
 											{/if}
@@ -327,18 +306,14 @@
 				{#if sessions.length === 0}
 					<div class="card empty-state">
 						<div class="w-14 h-14 rounded-2xl bg-[var(--color-bg-secondary)] flex items-center justify-center mb-4">
-							<svg class="w-7 h-7 text-[var(--color-text-tertiary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-							</svg>
+							<Terminal class="w-7 h-7 text-[var(--color-text-tertiary)]" strokeWidth={1.5} />
 						</div>
 						<h3 class="empty-state-title">No sessions yet</h3>
 						<p class="empty-state-description">
 							Start a new session to begin working with an AI agent on this repository.
 						</p>
 						<button onclick={() => { sessionRole = 'implementer'; showStartModal = true; }} class="btn btn-primary mt-5">
-							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-							</svg>
+							<Plus class="w-4 h-4" strokeWidth={2} />
 							Start First Session
 						</button>
 					</div>
@@ -375,9 +350,7 @@
 								<pre class="whitespace-pre-wrap text-xs text-[var(--color-text-secondary)] font-mono leading-relaxed">{docs.readme}</pre>
 							{:else}
 								<div class="text-center py-8">
-									<svg class="w-8 h-8 mx-auto text-[var(--color-text-tertiary)] mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-									</svg>
+									<FileText class="w-8 h-8 mx-auto text-[var(--color-text-tertiary)] mb-2" strokeWidth={1.5} />
 									<p class="text-sm text-[var(--color-text-tertiary)]">No README found</p>
 								</div>
 							{/if}
@@ -386,9 +359,7 @@
 								<pre class="whitespace-pre-wrap text-xs text-[var(--color-text-secondary)] font-mono leading-relaxed">{docs.claudeMd}</pre>
 							{:else}
 								<div class="text-center py-8">
-									<svg class="w-8 h-8 mx-auto text-[var(--color-text-tertiary)] mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-									</svg>
+									<FileText class="w-8 h-8 mx-auto text-[var(--color-text-tertiary)] mb-2" strokeWidth={1.5} />
 									<p class="text-sm text-[var(--color-text-tertiary)]">No CLAUDE.md found</p>
 								</div>
 							{/if}
@@ -416,9 +387,7 @@
 					class="btn btn-ghost btn-icon btn-sm"
 					aria-label="Close modal"
 				>
-					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-					</svg>
+					<X class="w-5 h-5" strokeWidth={2} />
 				</button>
 			</div>
 
@@ -469,10 +438,7 @@
 						<span class="spinner spinner-sm"></span>
 						Starting...
 					{:else}
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path>
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-						</svg>
+						<Play class="w-4 h-4" strokeWidth={2} />
 						Start Session
 					{/if}
 				</button>

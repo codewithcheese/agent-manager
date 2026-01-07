@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import TimeAgo from '$lib/components/TimeAgo.svelte';
+	import { Plus, AlertCircle, RefreshCw, FolderGit2, GitBranch, Terminal, X, Search, Check } from 'lucide-svelte';
 
 	interface RepoWithStats {
 		id: string;
@@ -126,9 +127,7 @@
 				</p>
 			</div>
 			<button onclick={() => openAddModal()} class="btn btn-primary">
-				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-				</svg>
+				<Plus class="w-4 h-4" strokeWidth={2} />
 				Add Repository
 			</button>
 		</div>
@@ -141,18 +140,14 @@
 			<p class="mt-4 text-sm text-[var(--color-text-secondary)]">Loading repositories...</p>
 		</div>
 	{:else if error}
-		<div class="card border-[var(--color-error)]/30 bg-[var(--color-error-light)]">
+		<div class="card border-[var(--color-error)]/30 bg-[var(--color-error-subtle)]">
 			<div class="flex items-start gap-3">
-				<svg class="w-5 h-5 text-[var(--color-error)] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-				</svg>
+				<AlertCircle class="w-5 h-5 text-[var(--color-error)] flex-shrink-0 mt-0.5" strokeWidth={2} />
 				<div class="flex-1">
 					<p class="font-medium text-[var(--color-error)]">Failed to load repositories</p>
 					<p class="mt-1 text-sm text-[var(--color-error)]/80">{error}</p>
 					<button onclick={() => fetchRepos()} class="btn btn-sm btn-secondary mt-3">
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-						</svg>
+						<RefreshCw class="w-4 h-4" strokeWidth={2} />
 						Retry
 					</button>
 				</div>
@@ -161,18 +156,14 @@
 	{:else if repos.length === 0}
 		<div class="card empty-state">
 			<div class="w-16 h-16 rounded-2xl bg-[var(--color-bg-secondary)] flex items-center justify-center mb-4">
-				<svg class="w-8 h-8 text-[var(--color-text-tertiary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
-				</svg>
+				<FolderGit2 class="w-8 h-8 text-[var(--color-text-tertiary)]" strokeWidth={1.5} />
 			</div>
 			<h3 class="empty-state-title">No repositories yet</h3>
 			<p class="empty-state-description">
 				Add a GitHub repository to start creating agent sessions. Each session runs in an isolated container.
 			</p>
 			<button onclick={() => openAddModal()} class="btn btn-primary mt-6">
-				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-				</svg>
+				<Plus class="w-4 h-4" strokeWidth={2} />
 				Add Repository
 			</button>
 		</div>
@@ -189,17 +180,13 @@
 					<div class="flex items-start justify-between gap-3">
 						<div class="min-w-0 flex-1">
 							<div class="flex items-center gap-2">
-								<svg class="w-4 h-4 text-[var(--color-text-tertiary)] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
-								</svg>
-								<h3 class="font-semibold truncate text-[var(--color-text)] group-hover:text-[var(--color-primary)] transition-colors">
+								<FolderGit2 class="w-4 h-4 text-[var(--color-text-tertiary)] flex-shrink-0" strokeWidth={1.5} />
+								<h3 class="font-semibold truncate text-[var(--color-text)] group-hover:text-[var(--color-accent)] transition-colors">
 									{repo.fullName}
 								</h3>
 							</div>
 							<p class="mt-1.5 text-xs text-[var(--color-text-tertiary)] flex items-center gap-1.5">
-								<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
-								</svg>
+								<GitBranch class="w-3 h-3" strokeWidth={2} />
 								{repo.defaultBranch}
 							</p>
 						</div>
@@ -212,9 +199,7 @@
 					<div class="mt-4 pt-4 border-t border-[var(--color-border)] flex items-center justify-between text-xs">
 						<div class="flex items-center gap-3">
 							<span class="flex items-center gap-1.5 text-[var(--color-text-secondary)]">
-								<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-								</svg>
+								<Terminal class="w-3.5 h-3.5" strokeWidth={1.5} />
 								{#if repo.stats.activeSessions > 0}
 									<span class="text-[var(--color-success)] font-medium">{repo.stats.activeSessions}</span>
 									<span class="text-[var(--color-text-tertiary)]">/</span>
@@ -249,17 +234,13 @@
 					class="btn btn-ghost btn-icon btn-sm"
 					aria-label="Close modal"
 				>
-					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-					</svg>
+					<X class="w-5 h-5" strokeWidth={2} />
 				</button>
 			</div>
 
 			<!-- Search Input -->
 			<div class="relative mb-4">
-				<svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
-				</svg>
+				<Search class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-text-tertiary)]" strokeWidth={2} />
 				<input
 					type="text"
 					class="input pl-10"
@@ -293,9 +274,7 @@
 							>
 								<div class="min-w-0 flex-1">
 									<div class="flex items-center gap-2">
-										<svg class="w-4 h-4 text-[var(--color-text-tertiary)] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
-										</svg>
+										<FolderGit2 class="w-4 h-4 text-[var(--color-text-tertiary)] flex-shrink-0" strokeWidth={1.5} />
 										<span class="font-medium truncate text-[var(--color-text)]">{ghRepo.fullName}</span>
 										{#if ghRepo.isPrivate}
 											<span class="badge badge-sm bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)]">
@@ -311,10 +290,8 @@
 								</div>
 								<div class="ml-3 flex-shrink-0">
 									{#if isAdded}
-										<span class="badge bg-[var(--color-success-light)] text-[var(--color-success)]">
-											<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-											</svg>
+										<span class="badge bg-[var(--color-success-subtle)] text-[var(--color-success)]">
+											<Check class="w-3 h-3" strokeWidth={2} />
 											Added
 										</span>
 									{:else}
