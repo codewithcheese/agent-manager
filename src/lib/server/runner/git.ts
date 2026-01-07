@@ -12,8 +12,10 @@ import { promisify } from 'util';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { getWorkspacePaths, type WorkspacePaths } from '$lib/types/config';
+import { createLogger } from '$lib/server/logger';
 
 const execAsync = promisify(exec);
+const log = createLogger('git');
 
 export interface GitMirrorInfo {
 	mirrorPath: string;
@@ -103,12 +105,15 @@ export function createGitModule(workspaceRoot: string): GitModule {
 
 	async function runGit(cwd: string, args: string[]): Promise<string> {
 		const cmd = `git ${args.map((a) => `"${a.replace(/"/g, '\\"')}"`).join(' ')}`;
+		log.debug(`Running: ${cmd}`, { cwd });
 		try {
 			const { stdout } = await execAsync(cmd, { cwd, maxBuffer: 10 * 1024 * 1024 });
 			return stdout.trim();
 		} catch (error) {
 			const execError = error as { stderr?: string; message: string };
-			throw new Error(`Git command failed: ${cmd}\n${execError.stderr || execError.message}`);
+			const errorMsg = `Git command failed: ${cmd}\n${execError.stderr || execError.message}`;
+			log.error(errorMsg, error);
+			throw new Error(errorMsg);
 		}
 	}
 

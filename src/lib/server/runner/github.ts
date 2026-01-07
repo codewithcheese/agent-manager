@@ -10,8 +10,10 @@
 
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { createLogger } from '$lib/server/logger';
 
 const execAsync = promisify(exec);
+const log = createLogger('github');
 
 export interface GitHubRepo {
 	owner: string;
@@ -112,15 +114,15 @@ export interface GitHubUrls {
 
 async function runGh(args: string[]): Promise<string> {
 	const cmd = `gh ${args.map((a) => `"${a.replace(/"/g, '\\"')}"`).join(' ')}`;
+	log.debug(`Running: ${cmd}`);
 	try {
 		const { stdout } = await execAsync(cmd, { maxBuffer: 10 * 1024 * 1024 });
 		return stdout.trim();
 	} catch (error) {
 		const execError = error as { stderr?: string; message: string; code?: number };
-		throw new GitHubError(
-			`gh command failed: ${args.join(' ')}\n${execError.stderr || execError.message}`,
-			execError.code
-		);
+		const errorMsg = `gh command failed: ${args.join(' ')}\n${execError.stderr || execError.message}`;
+		log.error(errorMsg, error);
+		throw new GitHubError(errorMsg, execError.code);
 	}
 }
 

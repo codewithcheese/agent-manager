@@ -12,8 +12,10 @@ import { exec, spawn, type ChildProcess } from 'child_process';
 import { promisify } from 'util';
 import * as path from 'path';
 import type { AgentManagerConfig } from '$lib/types/config';
+import { createLogger } from '$lib/server/logger';
 
 const execAsync = promisify(exec);
+const log = createLogger('docker');
 
 export interface ContainerConfig {
 	sessionId: string;
@@ -103,15 +105,15 @@ export class DockerError extends Error {
 
 async function runDocker(args: string[]): Promise<string> {
 	const cmd = `docker ${args.map((a) => `"${a.replace(/"/g, '\\"')}"`).join(' ')}`;
+	log.debug(`Running: ${cmd}`);
 	try {
 		const { stdout } = await execAsync(cmd, { maxBuffer: 10 * 1024 * 1024 });
 		return stdout.trim();
 	} catch (error) {
 		const execError = error as { stderr?: string; message: string; code?: number };
-		throw new DockerError(
-			`Docker command failed: ${args.join(' ')}\n${execError.stderr || execError.message}`,
-			execError.code
-		);
+		const errorMsg = `Docker command failed: ${args.join(' ')}\n${execError.stderr || execError.message}`;
+		log.error(errorMsg, error);
+		throw new DockerError(errorMsg, execError.code);
 	}
 }
 
