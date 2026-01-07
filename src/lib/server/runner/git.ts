@@ -192,20 +192,20 @@ export function createGitModule(workspaceRoot: string): GitModule {
 		}
 
 		// Create new branch and worktree
-		// First, try to create the branch from origin/<baseBranch>
-		const baseRef = `origin/${baseBranch}`;
+		// In a bare mirror repo, branches are stored directly (e.g., 'main' not 'origin/main')
+		log.info(`Creating worktree`, { sessionId, mirrorPath, worktreePath, branchName, baseBranch });
 
 		try {
-			// Create worktree with new branch
-			await runGit(mirrorPath, ['worktree', 'add', '-b', branchName, worktreePath, baseRef]);
+			// Create worktree with new branch based on the base branch
+			await runGit(mirrorPath, ['worktree', 'add', '-b', branchName, worktreePath, baseBranch]);
 		} catch (error) {
 			// Branch might already exist, try without -b
 			try {
 				await runGit(mirrorPath, ['worktree', 'add', worktreePath, branchName]);
 			} catch {
-				// If that fails too, force create
+				// If that fails too, force delete the branch and recreate
 				await runGit(mirrorPath, ['branch', '-D', branchName]).catch(() => {});
-				await runGit(mirrorPath, ['worktree', 'add', '-b', branchName, worktreePath, baseRef]);
+				await runGit(mirrorPath, ['worktree', 'add', '-b', branchName, worktreePath, baseBranch]);
 			}
 		}
 

@@ -560,6 +560,18 @@ export function mockDockerModule() {
 }
 ```
 
+### Git Module Integration Tests
+
+**File:** `src/lib/server/runner/git.integration.test.ts`
+
+Tests actual git operations using temporary directories. Covers:
+- Creating bare mirrors from local repos
+- Worktree creation/removal from bare mirrors
+- Default branch detection
+- Branch name generation
+
+**Key insight:** In a bare mirror repository (created with `git clone --bare --mirror`), branches are stored directly as `refs/heads/main`, not `refs/remotes/origin/main`. When creating worktrees, use the branch name directly (e.g., `main`) instead of `origin/main`.
+
 ### Repos API Tests
 
 **File:** `src/routes/api/repos/+server.test.ts`
